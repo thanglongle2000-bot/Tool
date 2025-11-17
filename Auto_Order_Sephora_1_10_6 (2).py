@@ -1,13 +1,13 @@
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.6                ║
+║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.7                ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.6 - BASKET ITEMS VALIDATION                    ║
-║  ✅ Ô "Total Item:" default EMPTY (bắt buộc nhập)            ║
-║  ✅ Validation: không nhập Total Item → không chạy được      ║
-║  ✅ Check basket count sau samples (thiếu/thừa → stop)       ║
-║  ✅ Tránh workflow chạy sai do user quên input               ║
+║  VERSION 1.10.7 - POINT REWARDS SELECTION                    ║
+║  ✅ Thêm 5 ô Point 1-5 để chọn quà Point Rewards             ║
+║  ✅ Tự động click "Apply Points for Bazaar Items"           ║
+║  ✅ Chọn quà theo tên sản phẩm (tùy chọn, skip nếu empty)   ║
+║  ✅ Apply cho cả Main flow và Retry flow                     ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -1468,7 +1468,7 @@ class SephoraAutoTool(ctk.CTk):
         ctk.set_default_color_theme("blue")
         
         # Cấu hình window
-        self.title("Sephora Auto Order - 1.10.6")
+        self.title("Sephora Auto Order - 1.10.7")
         self.geometry("1400x700")
         
         # Biến
@@ -1571,7 +1571,29 @@ class SephoraAutoTool(ctk.CTk):
             sample2_val = self.config.get('sample2', '')
             if sample2_val:
                 self.sample2_entry.insert(0, sample2_val)
-        
+
+        # ✅ V1.10.7: Load Point 1-5
+        if hasattr(self, 'point1_entry'):
+            val = self.config.get('point1', '')
+            if val:
+                self.point1_entry.insert(0, val)
+        if hasattr(self, 'point2_entry'):
+            val = self.config.get('point2', '')
+            if val:
+                self.point2_entry.insert(0, val)
+        if hasattr(self, 'point3_entry'):
+            val = self.config.get('point3', '')
+            if val:
+                self.point3_entry.insert(0, val)
+        if hasattr(self, 'point4_entry'):
+            val = self.config.get('point4', '')
+            if val:
+                self.point4_entry.insert(0, val)
+        if hasattr(self, 'point5_entry'):
+            val = self.config.get('point5', '')
+            if val:
+                self.point5_entry.insert(0, val)
+
         # Auto-save config khi đóng
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
     
@@ -1836,7 +1858,31 @@ class SephoraAutoTool(ctk.CTk):
         ctk.CTkLabel(row4, text="Sample 2:", font=("Arial", 10, "bold")).pack(side="left", padx=(8, 2))
         self.sample2_entry = ctk.CTkEntry(row4, placeholder_text="Product Name", width=120)
         self.sample2_entry.pack(side="left", padx=2)
-    
+
+        # ✅ V1.10.7: Row 5 - Point Rewards (5 ô)
+        row5 = ctk.CTkFrame(top, fg_color="transparent")
+        row5.pack(fill="x", pady=5)
+
+        ctk.CTkLabel(row5, text="Point 1:", font=("Arial", 10, "bold")).pack(side="left", padx=(5, 2))
+        self.point1_entry = ctk.CTkEntry(row5, placeholder_text="Product Name", width=100)
+        self.point1_entry.pack(side="left", padx=2)
+
+        ctk.CTkLabel(row5, text="Point 2:", font=("Arial", 10, "bold")).pack(side="left", padx=(8, 2))
+        self.point2_entry = ctk.CTkEntry(row5, placeholder_text="Product Name", width=100)
+        self.point2_entry.pack(side="left", padx=2)
+
+        ctk.CTkLabel(row5, text="Point 3:", font=("Arial", 10, "bold")).pack(side="left", padx=(8, 2))
+        self.point3_entry = ctk.CTkEntry(row5, placeholder_text="Product Name", width=100)
+        self.point3_entry.pack(side="left", padx=2)
+
+        ctk.CTkLabel(row5, text="Point 4:", font=("Arial", 10, "bold")).pack(side="left", padx=(8, 2))
+        self.point4_entry = ctk.CTkEntry(row5, placeholder_text="Product Name", width=100)
+        self.point4_entry.pack(side="left", padx=2)
+
+        ctk.CTkLabel(row5, text="Point 5:", font=("Arial", 10, "bold")).pack(side="left", padx=(8, 2))
+        self.point5_entry = ctk.CTkEntry(row5, placeholder_text="Product Name", width=100)
+        self.point5_entry.pack(side="left", padx=2)
+
     def create_table(self, parent):
         """Tạo table"""
         center = ctk.CTkFrame(parent, fg_color="#2b2b2b")
@@ -5762,7 +5808,84 @@ class SephoraAutoTool(ctk.CTk):
                                     
                                 except Exception as sample_error:
                                     print(f"[ERROR] Failed to select samples: {sample_error}")
-                            
+
+                            # ✅ V1.10.7: Chọn Point Rewards (nếu có)
+                            point_items = [
+                                self.point1_entry.get().strip(),
+                                self.point2_entry.get().strip(),
+                                self.point3_entry.get().strip(),
+                                self.point4_entry.get().strip(),
+                                self.point5_entry.get().strip()
+                            ]
+                            point_items = [p for p in point_items if p]  # Lọc bỏ empty
+
+                            if point_items:
+                                try:
+                                    account.status = "Selecting Point items..."
+                                    self.refresh_table()
+                                    print(f"[INFO] Selecting {len(point_items)} Point item(s): {point_items}")
+
+                                    # Click "Apply Points for Bazaar Items" button
+                                    point_btn = WebDriverWait(driver, 10).until(
+                                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.css-bgk68u[data-comp="BaseComponent "]'))
+                                    )
+                                    point_btn.click()
+                                    time.sleep(2)
+                                    print(f"[INFO] Point popup opened")
+
+                                    # Loop qua từng Point item
+                                    for idx, point_name in enumerate(point_items, 1):
+                                        print(f"[INFO] Searching for Point {idx}: {point_name}...")
+
+                                        # Tìm product theo tên trong popup
+                                        result = driver.execute_script("""
+                                            const searchText = arguments[0];
+                                            const items = document.querySelectorAll('a[data-at="product_item_container"]');
+
+                                            for (let item of items) {
+                                                const brandElem = item.querySelector('span[data-at="product_brand_label"]');
+                                                const nameElem = item.querySelector('span[data-at="product_name_label"]');
+                                                const brand = brandElem ? brandElem.textContent : '';
+                                                const name = nameElem ? nameElem.textContent : '';
+                                                const fullName = brand + ' ' + name;
+
+                                                if (fullName.toLowerCase().includes(searchText.toLowerCase())) {
+                                                    const addBtn = item.querySelector('button[data-comp="AddToBasketButton BaseComponent "]');
+                                                    if (addBtn) {
+                                                        addBtn.click();
+                                                        return true;
+                                                    }
+                                                }
+                                            }
+                                            return false;
+                                        """, point_name)
+
+                                        if result:
+                                            print(f"[SUCCESS] Clicked Add for Point {idx}: {point_name}")
+                                            time.sleep(2)
+
+                                            # Click Confirm button
+                                            try:
+                                                confirm_btn = WebDriverWait(driver, 5).until(
+                                                    EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-at="change_method_modal_confirm_btn"]'))
+                                                )
+                                                confirm_btn.click()
+                                                print(f"[SUCCESS] Confirmed Point {idx}")
+                                                time.sleep(2)
+                                            except Exception as confirm_error:
+                                                print(f"[WARNING] No confirm button for Point {idx}: {confirm_error}")
+                                        else:
+                                            print(f"[WARNING] Point item not found: {point_name}")
+
+                                    # Click Done để đóng popup
+                                    done_btn = driver.find_element(By.CSS_SELECTOR, "button.css-1ab2xd")
+                                    done_btn.click()
+                                    time.sleep(2)
+                                    print(f"[SUCCESS] Point items selected!")
+
+                                except Exception as point_error:
+                                    print(f"[ERROR] Failed to select Point items: {point_error}")
+
                             account.status = f"✅ Added {added_count} items"
                             if out_of_stock_count > 0:
                                 account.status += f" ({out_of_stock_count} OOS)"
@@ -6984,7 +7107,84 @@ class SephoraAutoTool(ctk.CTk):
                                         
                                     except Exception as sample_error:
                                         print(f"[ERROR] Failed to select samples (retry): {sample_error}")
-                                
+
+                                # ✅ V1.10.7: Chọn Point Rewards (retry - nếu có)
+                                point_items = [
+                                    self.point1_entry.get().strip(),
+                                    self.point2_entry.get().strip(),
+                                    self.point3_entry.get().strip(),
+                                    self.point4_entry.get().strip(),
+                                    self.point5_entry.get().strip()
+                                ]
+                                point_items = [p for p in point_items if p]  # Lọc bỏ empty
+
+                                if point_items:
+                                    try:
+                                        account.status = "Selecting Point items (retry)..."
+                                        self.refresh_table()
+                                        print(f"[INFO] Selecting {len(point_items)} Point item(s) (retry): {point_items}")
+
+                                        # Click "Apply Points for Bazaar Items" button
+                                        point_btn = WebDriverWait(driver, 10).until(
+                                            EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.css-bgk68u[data-comp="BaseComponent "]'))
+                                        )
+                                        point_btn.click()
+                                        time.sleep(2)
+                                        print(f"[INFO] Point popup opened (retry)")
+
+                                        # Loop qua từng Point item
+                                        for idx, point_name in enumerate(point_items, 1):
+                                            print(f"[INFO] Searching for Point {idx} (retry): {point_name}...")
+
+                                            # Tìm product theo tên trong popup
+                                            result = driver.execute_script("""
+                                                const searchText = arguments[0];
+                                                const items = document.querySelectorAll('a[data-at="product_item_container"]');
+
+                                                for (let item of items) {
+                                                    const brandElem = item.querySelector('span[data-at="product_brand_label"]');
+                                                    const nameElem = item.querySelector('span[data-at="product_name_label"]');
+                                                    const brand = brandElem ? brandElem.textContent : '';
+                                                    const name = nameElem ? nameElem.textContent : '';
+                                                    const fullName = brand + ' ' + name;
+
+                                                    if (fullName.toLowerCase().includes(searchText.toLowerCase())) {
+                                                        const addBtn = item.querySelector('button[data-comp="AddToBasketButton BaseComponent "]');
+                                                        if (addBtn) {
+                                                            addBtn.click();
+                                                            return true;
+                                                        }
+                                                    }
+                                                }
+                                                return false;
+                                            """, point_name)
+
+                                            if result:
+                                                print(f"[SUCCESS] Clicked Add for Point {idx} (retry): {point_name}")
+                                                time.sleep(2)
+
+                                                # Click Confirm button
+                                                try:
+                                                    confirm_btn = WebDriverWait(driver, 5).until(
+                                                        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-at="change_method_modal_confirm_btn"]'))
+                                                    )
+                                                    confirm_btn.click()
+                                                    print(f"[SUCCESS] Confirmed Point {idx} (retry)")
+                                                    time.sleep(2)
+                                                except Exception as confirm_error:
+                                                    print(f"[WARNING] No confirm button for Point {idx} (retry): {confirm_error}")
+                                            else:
+                                                print(f"[WARNING] Point item not found (retry): {point_name}")
+
+                                        # Click Done để đóng popup
+                                        done_btn = driver.find_element(By.CSS_SELECTOR, "button.css-1ab2xd")
+                                        done_btn.click()
+                                        time.sleep(2)
+                                        print(f"[SUCCESS] Point items selected (retry)!")
+
+                                    except Exception as point_error:
+                                        print(f"[ERROR] Failed to select Point items (retry): {point_error}")
+
                                 account.status = f"✅ Added {added_count} items (Retry)"
                                 if out_of_stock_count > 0:
                                     account.status += f" ({out_of_stock_count} OOS)"
@@ -7722,7 +7922,14 @@ class SephoraAutoTool(ctk.CTk):
             self.config['coupon_item4'] = self.coupon_item4_entry.get()  # ✅ V1.9.4
             self.config['sample1'] = self.sample1_entry.get()
             self.config['sample2'] = self.sample2_entry.get()
-            
+
+            # ✅ V1.10.7: Lưu Point 1-5
+            self.config['point1'] = self.point1_entry.get()
+            self.config['point2'] = self.point2_entry.get()
+            self.config['point3'] = self.point3_entry.get()
+            self.config['point4'] = self.point4_entry.get()
+            self.config['point5'] = self.point5_entry.get()
+
             # ✅ V1.8.6: Lưu Threads và Delay
             self.config['threads'] = self.threads_entry.get()
             self.config['delay'] = self.delay_entry.get()
