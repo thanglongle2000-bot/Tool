@@ -1,13 +1,13 @@
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.9                ║
+║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.10               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.9 - PROFILE CLEANUP FIX                        ║
-║  ✅ Fix lỗi profile còn cookie/autofill cũ sau khi xóa      ║
-║  ✅ Thêm timestamp vào profile name khi tạo mới             ║
-║  ✅ Đảm bảo mỗi profile mới là hoàn toàn sạch               ║
-║  ✅ Tránh tái sử dụng folder profile cũ từ GPM              ║
+║  VERSION 1.10.10 - BASKET VALIDATION FIX                     ║
+║  ✅ Fix lỗi retry flow thiếu basket count validation         ║
+║  ✅ Thêm validation cho retry flow giống main flow          ║
+║  ✅ Ngăn chặn accounts bypass check và vào checkout          ║
+║  ✅ Tất cả 8 luồng đều validate đúng total items            ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -1468,7 +1468,7 @@ class SephoraAutoTool(ctk.CTk):
         ctk.set_default_color_theme("blue")
         
         # Cấu hình window
-        self.title("Sephora Auto Order - 1.10.9")
+        self.title("Sephora Auto Order - 1.10.10")
         self.geometry("1400x700")
         
         # Biến
@@ -7357,7 +7357,51 @@ class SephoraAutoTool(ctk.CTk):
                                 account.status = f"✅ Added {added_count} items (Retry)"
                                 if out_of_stock_count > 0:
                                     account.status += f" ({out_of_stock_count} OOS)"
-                                
+
+                                # ✅ V1.10.6: Check basket items count (RETRY)
+                                try:
+                                    expected_total = int(self.config.get('total_item', '3'))
+                                    print(f"[INFO] (Retry) Expected total items: {expected_total}")
+
+                                    account.status = "Checking basket count (retry)..."
+                                    self.refresh_table()
+                                    time.sleep(2)
+
+                                    actual_count = self.check_basket_items_count(driver)
+
+                                    if actual_count is None:
+                                        print(f"[WARNING] (Retry) Could not get basket items count, continuing anyway...")
+                                    elif actual_count < expected_total:
+                                        print(f"[ERROR] (Retry) Basket items ({actual_count}) < Expected ({expected_total})")
+                                        account.status = "Add thiếu Item (retry)"
+                                        self.refresh_table()
+                                        self.save_accounts()
+
+                                        # Close profile
+                                        if account.id:
+                                            self.gpm_api.stop_profile(account.id)
+                                            print("[INFO] Profile closed - Add thiếu Item (retry)")
+
+                                        return None
+                                    elif actual_count > expected_total:
+                                        print(f"[ERROR] (Retry) Basket items ({actual_count}) > Expected ({expected_total})")
+                                        account.status = "Add thừa item (retry)"
+                                        self.refresh_table()
+                                        self.save_accounts()
+
+                                        # Close profile
+                                        if account.id:
+                                            self.gpm_api.stop_profile(account.id)
+                                            print("[INFO] Profile closed - Add thừa item (retry)")
+
+                                        return None
+                                    else:
+                                        print(f"[SUCCESS] (Retry) Basket items count matches: {actual_count} = {expected_total}")
+                                except ValueError:
+                                    print(f"[WARNING] (Retry) Invalid total_item config, skipping validation")
+                                except Exception as check_error:
+                                    print(f"[WARNING] (Retry) Failed to validate basket count: {check_error}")
+
                                 # ✅ V1.6.1: Click Checkout button (retry)
                                 account.status = "Clicking Checkout (retry)..."
                                 self.refresh_table()
