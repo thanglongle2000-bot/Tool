@@ -5632,13 +5632,13 @@ class SephoraAutoTool(ctk.CTk):
                                         
                                         elif "Must be logged into" in error_text or "Beauty Insider" in error_text:
                                             # Đã đăng nhập nhưng vẫn lỗi → Kiểm tra Coupon
-                                            account.status = "Kiểm tra Coupon"
+                                            account.status = "Kiểm tra Coupon or login fail"
                                             self.refresh_table()
                                             self.save_accounts()
                                             
                                             if account.id:
                                                 self.gpm_api.stop_profile(account.id)
-                                                print(f"[INFO] Profile closed - Kiểm tra Coupon")
+                                                print(f"[INFO] Profile closed - Kiểm tra Coupon or login fail")
                                             
                                             return None
                                     except:
@@ -6997,13 +6997,13 @@ class SephoraAutoTool(ctk.CTk):
                                             
                                             elif "Must be logged into" in error_text or "Beauty Insider" in error_text:
                                                 # Đã đăng nhập nhưng vẫn lỗi → Kiểm tra Coupon
-                                                account.status = "Kiểm tra Coupon"
+                                                account.status = "Kiểm tra Coupon or login fail"
                                                 self.refresh_table()
                                                 self.save_accounts()
                                                 
                                                 if account.id:
                                                     self.gpm_api.stop_profile(account.id)
-                                                    print(f"[INFO] Profile closed - Kiểm tra Coupon (retry)")
+                                                    print(f"[INFO] Profile closed - Kiểm tra Coupon or login fail (retry)")
                                                 
                                                 return None
                                         except:
