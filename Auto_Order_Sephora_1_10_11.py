@@ -1,13 +1,13 @@
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.10               ║
+║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.11               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.10 - BASKET VALIDATION FIX                     ║
-║  ✅ Fix lỗi retry flow thiếu basket count validation         ║
-║  ✅ Thêm validation cho retry flow giống main flow          ║
-║  ✅ Ngăn chặn accounts bypass check và vào checkout          ║
-║  ✅ Tất cả 8 luồng đều validate đúng total items            ║
+║  VERSION 1.10.11 - RETRY STOCK CHECK TIMING FIX              ║
+║  ✅ Fix lỗi retry flow detect sai item out of stock         ║
+║  ✅ Tăng sleep từ 3s → 4s để đồng nhất với main flow       ║
+║  ✅ Đảm bảo page load đủ thời gian trước khi check stock    ║
+║  ✅ Tránh false positive "out of stock" với proxy chậm      ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -1468,7 +1468,7 @@ class SephoraAutoTool(ctk.CTk):
         ctk.set_default_color_theme("blue")
         
         # Cấu hình window
-        self.title("Sephora Auto Order - 1.10.10")
+        self.title("Sephora Auto Order - 1.10.11")
         self.geometry("1400x700")
         
         # Biến
@@ -6796,8 +6796,8 @@ class SephoraAutoTool(ctk.CTk):
                                     print(f"[INFO] Opening Item {idx}: {item_url[:50]}...")
                                     
                                     driver.get(item_url)
-                                    time.sleep(3)
-                                    
+                                    time.sleep(4)  # ✅ V1.10.11: Tăng từ 3s → 4s để đồng nhất với main flow
+
                                     # Check out of stock
                                     account.status = f"Checking stock Item {idx}..."
                                     self.refresh_table()
