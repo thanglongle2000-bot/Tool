@@ -1774,7 +1774,18 @@ class SephoraAutoTool(ctk.CTk):
         if saved_total:
             self.total_item_entry.insert(0, saved_total)
         self.total_item_entry.pack(side="left", padx=2)
-        
+
+        # ✅ V1.10.7: Checkbox Giảm 10$ (500 points)
+        self.discount_10_var = ctk.BooleanVar(value=self.config.get('discount_10', False))
+        self.discount_10_checkbox = ctk.CTkCheckBox(
+            row2,
+            text="Giảm 10$",
+            variable=self.discount_10_var,
+            width=80,
+            font=("Arial", 10, "bold")
+        )
+        self.discount_10_checkbox.pack(side="left", padx=(10, 2))
+
         # Right controls - REMOVED: order_entry, product_entry, promo_entry
         
         ctk.CTkButton(
@@ -5548,8 +5559,9 @@ class SephoraAutoTool(ctk.CTk):
                                     promo_input.clear()
                                     promo_input.send_keys(coupon_code)
                                     time.sleep(1)
-                                    
-                                    apply_btn = driver.find_element(By.CSS_SELECTOR, "button[data-at='apply_btn']")
+
+                                    # ✅ V1.10.7: Chỉ click Apply coupon (type="submit"), tránh nhầm với Apply 500 points (type="button")
+                                    apply_btn = driver.find_element(By.CSS_SELECTOR, "button[data-at='apply_btn'][type='submit']")
                                     apply_btn.click()
                                     time.sleep(3)
                                     
@@ -5707,7 +5719,23 @@ class SephoraAutoTool(ctk.CTk):
                                     
                                 except Exception as coupon_error:
                                     print(f"[ERROR] Failed to apply coupon: {coupon_error}")
-                            
+
+                            # ✅ V1.10.7: Apply 500 Points → Giảm 10$ (nếu checkbox được tích)
+                            if self.discount_10_var.get():
+                                try:
+                                    account.status = "Applying 500 points..."
+                                    self.refresh_table()
+                                    print(f"[INFO] Applying 500 points for $10 off...")
+
+                                    # Click Apply button (type="button", class="css-1pepv3h")
+                                    apply_500_btn = driver.find_element(By.CSS_SELECTOR, "button[data-at='apply_btn'][type='button']")
+                                    apply_500_btn.click()
+                                    time.sleep(2)
+                                    print(f"[SUCCESS] Applied 500 points for $10 off!")
+
+                                except Exception as points_error:
+                                    print(f"[WARNING] Failed to apply 500 points: {points_error}")
+
                             # ✅ V1.9.9: Chọn Sample nếu có (theo tên)
                             sample1 = self.sample1_entry.get().strip()
                             sample2 = self.sample2_entry.get().strip()
@@ -6859,11 +6887,12 @@ class SephoraAutoTool(ctk.CTk):
                                         promo_input.clear()
                                         promo_input.send_keys(coupon_code)
                                         time.sleep(1)
-                                        
-                                        apply_btn = driver.find_element(By.CSS_SELECTOR, "button[data-at='apply_btn']")
+
+                                        # ✅ V1.10.7: Chỉ click Apply coupon (type="submit"), tránh nhầm với Apply 500 points (type="button")
+                                        apply_btn = driver.find_element(By.CSS_SELECTOR, "button[data-at='apply_btn'][type='submit']")
                                         apply_btn.click()
                                         time.sleep(3)
-                                        
+
                                         # ✅ Step 3: Check errors
                                         try:
                                             error_msg = driver.find_element(By.CSS_SELECTOR, "p.css-oxeibp[role='alert']")
@@ -7015,13 +7044,26 @@ class SephoraAutoTool(ctk.CTk):
                                         else:
                                             # Không có popup
                                             print(f"[SUCCESS] Coupon applied (retry - no popup)!")
-                                        
+
                                     except Exception as coupon_error:
                                         print(f"[ERROR] Failed to apply coupon (retry): {coupon_error}")
-                                            
-                                    except Exception as coupon_error:
-                                        print(f"[ERROR] Failed to apply coupon (retry): {coupon_error}")
-                                
+
+                                # ✅ V1.10.7: Apply 500 Points → Giảm 10$ (retry - nếu checkbox được tích)
+                                if self.discount_10_var.get():
+                                    try:
+                                        account.status = "Applying 500 points (retry)..."
+                                        self.refresh_table()
+                                        print(f"[INFO] Applying 500 points for $10 off (retry)...")
+
+                                        # Click Apply button (type="button", class="css-1pepv3h")
+                                        apply_500_btn = driver.find_element(By.CSS_SELECTOR, "button[data-at='apply_btn'][type='button']")
+                                        apply_500_btn.click()
+                                        time.sleep(2)
+                                        print(f"[SUCCESS] Applied 500 points for $10 off (retry)!")
+
+                                    except Exception as points_error:
+                                        print(f"[WARNING] Failed to apply 500 points (retry): {points_error}")
+
                                 # ✅ V1.9.9: Chọn Sample nếu có (retry - theo tên)
                                 sample1 = self.sample1_entry.get().strip()
                                 sample2 = self.sample2_entry.get().strip()
@@ -7966,7 +8008,10 @@ class SephoraAutoTool(ctk.CTk):
             
             # ✅ V1.10.6: Lưu Total Item
             self.config['total_item'] = self.total_item_entry.get()
-            
+
+            # ✅ V1.10.7: Lưu Giảm 10$ checkbox
+            self.config['discount_10'] = self.discount_10_var.get()
+
             with open("config.json", "w", encoding="utf-8") as f:
                 json.dump(self.config, f, indent=2, ensure_ascii=False)
         except Exception as e:
