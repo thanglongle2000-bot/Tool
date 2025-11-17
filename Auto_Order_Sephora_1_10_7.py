@@ -5852,6 +5852,10 @@ class SephoraAutoTool(ctk.CTk):
                                                 if (fullName.toLowerCase().includes(searchText.toLowerCase())) {
                                                     const addBtn = item.querySelector('button[data-comp="AddToBasketButton BaseComponent "]');
                                                     if (addBtn) {
+                                                        // Check if button is disabled
+                                                        if (addBtn.hasAttribute('disabled')) {
+                                                            return 'disabled';
+                                                        }
                                                         addBtn.click();
                                                         return true;
                                                     }
@@ -5860,7 +5864,18 @@ class SephoraAutoTool(ctk.CTk):
                                             return false;
                                         """, point_name)
 
-                                        if result:
+                                        if result == 'disabled':
+                                            print(f"[ERROR] Not enough points for: {point_name}")
+                                            account.status = "Không đủ points"
+                                            self.refresh_table()
+                                            self.save_accounts()
+
+                                            if account.id:
+                                                self.gpm_api.stop_profile(account.id)
+                                                print(f"[INFO] Profile closed - Không đủ points")
+
+                                            return None
+                                        elif result:
                                             print(f"[SUCCESS] Clicked Add for Point {idx}: {point_name}")
                                             time.sleep(2)
 
@@ -7151,6 +7166,10 @@ class SephoraAutoTool(ctk.CTk):
                                                     if (fullName.toLowerCase().includes(searchText.toLowerCase())) {
                                                         const addBtn = item.querySelector('button[data-comp="AddToBasketButton BaseComponent "]');
                                                         if (addBtn) {
+                                                            // Check if button is disabled
+                                                            if (addBtn.hasAttribute('disabled')) {
+                                                                return 'disabled';
+                                                            }
                                                             addBtn.click();
                                                             return true;
                                                         }
@@ -7159,7 +7178,18 @@ class SephoraAutoTool(ctk.CTk):
                                                 return false;
                                             """, point_name)
 
-                                            if result:
+                                            if result == 'disabled':
+                                                print(f"[ERROR] Not enough points for (retry): {point_name}")
+                                                account.status = "Không đủ points"
+                                                self.refresh_table()
+                                                self.save_accounts()
+
+                                                if account.id:
+                                                    self.gpm_api.stop_profile(account.id)
+                                                    print(f"[INFO] Profile closed - Không đủ points (retry)")
+
+                                                return None
+                                            elif result:
                                                 print(f"[SUCCESS] Clicked Add for Point {idx} (retry): {point_name}")
                                                 time.sleep(2)
 
