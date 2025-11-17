@@ -1,13 +1,13 @@
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.11               ║
+║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.12               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.11 - RETRY STOCK CHECK TIMING FIX              ║
-║  ✅ Fix lỗi retry flow detect sai item out of stock         ║
-║  ✅ Tăng sleep từ 3s → 4s để đồng nhất với main flow       ║
-║  ✅ Đảm bảo page load đủ thời gian trước khi check stock    ║
-║  ✅ Tránh false positive "out of stock" với proxy chậm      ║
+║  VERSION 1.10.12 - UI REFRESH THROTTLE FIX                   ║
+║  ✅ Fix lỗi UI nháy nháy khi tool đang chạy                 ║
+║  ✅ Throttle refresh table từ 187 lần → tối đa 2 lần/giây  ║
+║  ✅ Giữ selection khi chuột phải vào dòng                   ║
+║  ✅ UX mượt mà hơn khi tool đang chạy automation            ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -1468,7 +1468,7 @@ class SephoraAutoTool(ctk.CTk):
         ctk.set_default_color_theme("blue")
         
         # Cấu hình window
-        self.title("Sephora Auto Order - 1.10.11")
+        self.title("Sephora Auto Order - 1.10.12")
         self.geometry("1400x700")
         
         # Biến
@@ -1482,10 +1482,15 @@ class SephoraAutoTool(ctk.CTk):
         self.is_running = False
         self.stop_flag = False  # ✅ V1.3.4
         self.search_filter = ""  # ✅ NEW v1.2.4: Search filter text
-        
+
         # ✅ V1.8.1: Thread locks cho multi-threading
         self.refresh_lock = threading.Lock()
         self.save_lock = threading.Lock()
+
+        # ✅ V1.10.12: Throttle refresh để tránh nháy nháy
+        self.last_refresh_time = 0
+        self.refresh_interval = 0.5  # Chỉ refresh mỗi 0.5 giây
+        self.pending_refresh = False
         
         # ✅ V1.7.0: Column visibility tracking
         self.column_visibility = {}  # Track which columns are visible
@@ -1596,7 +1601,22 @@ class SephoraAutoTool(ctk.CTk):
 
         # Auto-save config khi đóng
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
-    
+
+        # ✅ V1.10.12: Start pending refresh scheduler
+        self.schedule_pending_refresh()
+
+    def schedule_pending_refresh(self):
+        """
+        ✅ V1.10.12: Check và thực hiện pending refresh mỗi refresh_interval giây
+        Đảm bảo update cuối cùng không bị skip
+        """
+        if self.pending_refresh:
+            self.pending_refresh = False
+            self.refresh_table()
+
+        # Schedule lại sau refresh_interval
+        self.after(int(self.refresh_interval * 1000), self.schedule_pending_refresh)
+
     def create_sidebar(self):
         """Tạo sidebar"""
         sidebar = ctk.CTkFrame(self, width=85, fg_color="#1a1a1a")  # ✅ Tăng width từ 60 lên 85
@@ -3571,7 +3591,19 @@ class SephoraAutoTool(ctk.CTk):
         Cập nhật table
         ✅ IMPROVED v1.2.4: Hỗ trợ search filter
         ✅ V1.8.1: Thread-safe với lock
+        ✅ V1.10.12: Throttle để tránh nháy nháy UI
         """
+        # ✅ V1.10.12: Throttle - chỉ refresh nếu đã qua refresh_interval
+        current_time = time.time()
+        if current_time - self.last_refresh_time < self.refresh_interval:
+            # Đánh dấu có pending refresh để refresh sau
+            self.pending_refresh = True
+            return
+
+        # Reset pending flag
+        self.pending_refresh = False
+        self.last_refresh_time = current_time
+
         # ✅ V1.8.1: Sử dụng lock để tránh race condition trong multi-threading
         with self.refresh_lock:
             try:
