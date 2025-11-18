@@ -1,15 +1,13 @@
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.45               ║
+║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.46               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.45 - DYNAMIC SCREEN LAYOUT (ALL RESOLUTIONS)   ║
-║  ✅ Tự động tính columns và rows theo kích thước màn hình   ║
-║  ✅ Wrap-around khi profiles vượt quá slots hiển thị        ║
-║  ✅ Hỗ trợ mọi độ phân giải: Full HD, 2K, 4K               ║
+║  VERSION 1.10.46 - FIX FREEZE ISSUE                          ║
+║  ✅ Rollback columns calculation về fixed 4 columns         ║
+║  ✅ Fix đơ sau 6-8 luồng                                    ║
+║  ✅ Giữ wrap-around logic cho > 16 profiles                 ║
 ║  ✅ Enhanced logging cho overlap tracking                   ║
-║  ✅ Proportional scaling cho màn hình lớn hơn              ║
-║  ✅ Warning khi profiles > screen capacity                  ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -41,7 +39,7 @@ import shutil
 API_URL = "https://script.google.com/macros/s/AKfycbweWL4SRzwO0sMn7J2TlIlBQUldOKGX6Ro4zyWlnoHR_IV0MWuY1ozIKwjj6y2XoS_20g/exec"
 
 # ✅ Current version
-CURRENT_VERSION = "1.10.45"
+CURRENT_VERSION = "1.10.46"
 
 
 def get_device_id():
@@ -2547,7 +2545,7 @@ class SephoraAutoTool(ctk.CTk):
         ctk.set_default_color_theme("blue")
         
         # Cấu hình window
-        self.title("Sephora Auto Order - 1.10.45")
+        self.title("Sephora Auto Order - 1.10.46")
         self.geometry("1400x700")
         
         # Biến
@@ -6124,31 +6122,28 @@ class SephoraAutoTool(ctk.CTk):
                     auto_detect_4cols = self.config.get('auto_detect_4cols', False)
 
                     if auto_detect_4cols:
-                        # AUTO MODE: Tính số cột tự động dựa trên màn hình
-                        margin = 10
-                        # Tính số cột tối đa dựa trên actual_width
-                        max_cols = screen_width // (actual_width + margin)
-                        cols = max_cols if max_cols > 0 else 1
-                        # Chia đều màn hình cho số cột
-                        spacing_width = screen_width // cols
-                        spacing_height = actual_height + margin
+                        # AUTO MODE: Force 4 columns với spacing đơn giản
+                        cols = 4
+                        # ✅ V1.10.4 FIX: Đơn giản hóa - chia đều màn hình cho 4 cột
+                        spacing_width = screen_width // cols  # 1920 / 4 = 480
+                        spacing_height = actual_height + 10
 
                         print(f"[INFO] Window: {config_width}x{config_height} (before scale)")
                         print(f"[INFO] Actual size: {actual_width}x{actual_height} (after scale {scale})")
-                        print(f"[INFO] AUTO MODE: {cols} columns (auto-calculated for {screen_width}px width)")
+                        print(f"[INFO] AUTO MODE: Forced {cols} columns")
                         print(f"[INFO] Auto-calculated spacing: {spacing_width}x{spacing_height}")
                         print(f"[INFO] Each column width: {spacing_width}px (fit: {actual_width}px window)")
                     else:
-                        # MANUAL MODE: Tính số cột dựa trên actual size (không giới hạn)
+                        # MANUAL MODE: Tính số cột dựa trên actual size
                         margin = 10
                         max_cols = screen_width // (actual_width + margin)
-                        cols = max_cols if max_cols > 0 else 1
+                        cols = min(4, max_cols) if max_cols > 0 else 1
                         spacing_width = actual_width + margin
                         spacing_height = actual_height + margin
 
                         print(f"[INFO] Window: {config_width}x{config_height} (before scale)")
                         print(f"[INFO] Actual size: {actual_width}x{actual_height} (after scale {scale})")
-                        print(f"[INFO] MANUAL MODE: {cols} columns (calculated for {screen_width}px width)")
+                        print(f"[INFO] MANUAL MODE: {cols} columns (max: {max_cols})")
                         print(f"[INFO] Spacing: {spacing_width}x{spacing_height}")
                     
                     # Bước 5: Tính vị trí với wrap-around tự động theo kích thước màn hình
