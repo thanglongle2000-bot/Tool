@@ -1,14 +1,15 @@
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.40               ║
+║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.43               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.40 - FIX AUTO UPDATE DLL ERROR (v3)            ║
-║  ✅ TASKKILL: Force close app cũ trước khi update           ║
-║  ✅ COPY thay vì MOVE: An toàn hơn, rollback dễ dàng        ║
-║  ✅ DELAY 10s: Đợi Windows flush cache trước khi start      ║
-║  ✅ NO-CACHE: Disable cache khi download, tải bản mới       ║
-║  ✅ DEBUG: Log URL và file size để kiểm tra                 ║
+║  VERSION 1.10.43 - SIMPLIFIED UPDATE (FIX DLL ERROR)         ║
+║  ✅ CHỈ DOWNLOAD file mới - KHÔNG tự động replace           ║
+║  ✅ User tự đóng app cũ và mở file mới                      ║
+║  ✅ Tránh file locking, process conflicts, DLL issues        ║
+║  ✅ Unblock file ngay sau download                          ║
+║  ✅ Tự động mở folder chứa file mới                         ║
+║  ✅ Hướng dẫn chi tiết trong success dialog                 ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -40,7 +41,7 @@ import shutil
 API_URL = "https://script.google.com/macros/s/AKfycbweWL4SRzwO0sMn7J2TlIlBQUldOKGX6Ro4zyWlnoHR_IV0MWuY1ozIKwjj6y2XoS_20g/exec"
 
 # ✅ Current version
-CURRENT_VERSION = "1.10.42"
+CURRENT_VERSION = "1.10.43"
 
 
 def get_device_id():
@@ -802,7 +803,7 @@ class UpdateDialog(ctk.CTk):
         thread.start()
     
     def download_update(self):
-        """Download file update với verification và backup"""
+        """Download file mới - ĐƠN GIẢN: chỉ download, user tự chuyển"""
         try:
             # Download file mới
             self.after(0, lambda: self.status_label.configure(text="⏳ Đang tải xuống...", text_color="orange"))
@@ -828,7 +829,7 @@ class UpdateDialog(ctk.CTk):
 
             if file_size < min_size:
                 raise Exception(f"File quá nhỏ ({file_size / (1024*1024):.2f} MB), cần ít nhất 10 MB!")
-            
+
             # Xác định tên file hiện tại
             if getattr(sys, 'frozen', False):
                 # Chạy từ EXE
@@ -838,9 +839,16 @@ class UpdateDialog(ctk.CTk):
                 # Chạy từ .py
                 current_file = os.path.abspath(__file__)
                 is_exe = False
-            
-            # Lưu file mới với tên tạm
-            new_file = current_file + ".new"
+
+            # ✅ V1.10.43: Lưu file với tên KHÁC - user tự chuyển sau
+            # Tên file: Auto_Order_Sephora_1_10_XX_NEW.exe (hoặc .py)
+            file_dir = os.path.dirname(current_file)
+            file_ext = os.path.splitext(current_file)[1]
+            new_filename = f"Auto_Order_Sephora_{self.latest_version.replace('.', '_')}_NEW{file_ext}"
+            new_file = os.path.join(file_dir, new_filename)
+
+            print(f"[UPDATE] Saving to: {new_file}")
+
             with open(new_file, 'wb') as f:
                 f.write(response.content)
 
@@ -861,195 +869,129 @@ class UpdateDialog(ctk.CTk):
                     'powershell', '-Command',
                     f'Unblock-File -Path "{new_file}"'
                 ], capture_output=True, timeout=5)
-            except:
-                pass  # Ignore nếu không thành công
+                print("[UPDATE] File unblocked successfully")
+            except Exception as e:
+                print(f"[UPDATE] Unblock warning: {e}")
 
-            self.after(0, lambda: self.status_label.configure(text="✅ Tải xuống thành công! Đang cài đặt...", text_color="green"))
-            time.sleep(1)
-            
-            # Tạo updater script
-            self.create_updater(current_file, new_file)
-            
+            # ✅ Mở folder chứa file mới
+            try:
+                subprocess.Popen(f'explorer /select,"{new_file}"')
+            except:
+                pass
+
+            # Hiển thị success message
+            self.after(0, lambda: self.show_success_message(new_file))
+
             self.result = True
-            self.after(0, self.destroy)
-            
+
         except Exception as e:
+            print(f"Download error: {e}")
             self.after(0, lambda: self.status_label.configure(text=f"❌ Lỗi: {str(e)}", text_color="red"))
             self.after(0, lambda: self.update_btn.configure(state="normal"))
             self.after(0, lambda: self.skip_btn.configure(state="normal"))
-    
-    def create_updater(self, current_file, new_file):
-        """Tạo script updater với backup và rollback - FIX DLL ERROR"""
-        # Get executable name for taskkill
-        exe_name = os.path.basename(current_file)
-        current_dir = os.path.dirname(os.path.abspath(current_file))
 
-        updater_script = """@echo off
-chcp 65001 >nul
-echo ========================================
-echo   SEPHORA AUTO ORDER - UPDATE
-echo ========================================
-echo.
-echo ⚠️  QUAN TRỌNG: Nếu gặp lỗi DLL, hãy:
-echo    1. Tắt Windows Defender tạm thời
-echo    2. Hoặc thêm folder này vào Exclusions
-echo    3. Chạy lại file .backup
-echo.
+    def show_success_message(self, new_file):
+        """Hiển thị message khi download thành công"""
+        # Clear current content
+        for widget in self.winfo_children():
+            widget.destroy()
 
-REM ✅ [1/9] TẮT Windows Defender Real-time Protection (FIX LỖI DLL)
-echo [1/9] Tắt Windows Defender...
-echo Đang yêu cầu quyền Administrator để tắt Windows Defender...
-powershell -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\"' -WindowStyle Hidden" 2>nul
-timeout /t 3 /nobreak >nul
+        # Success frame
+        main_frame = ctk.CTkFrame(self)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-REM ✅ [2/9] Thêm exclusions cho nhiều locations
-echo [2/9] Thêm exclusions...
-powershell -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command \"Add-MpPreference -ExclusionPath @(\\\"{current_dir}\\\", \\\"{current_file}\\\", \\\"$env:TEMP\\\")\"' -WindowStyle Hidden" 2>nul
-timeout /t 2 /nobreak >nul
+        # Success icon + title
+        ctk.CTkLabel(
+            main_frame,
+            text="✅ TẢI THÀNH CÔNG!",
+            font=("Arial", 24, "bold"),
+            text_color="#2ecc71"
+        ).pack(pady=(20, 10))
 
-REM ✅ [3/9] Unblock file .new
-echo [3/9] Unblock file...
-powershell -Command "Unblock-File -Path \"{new_file}\"" 2>nul
+        ctk.CTkLabel(
+            main_frame,
+            text=f"Version {self.latest_version} đã được tải về",
+            font=("Arial", 14),
+            text_color="#95a5a6"
+        ).pack(pady=(0, 20))
 
-REM ✅ [4/9] Chắc chắn app cũ đã tắt hoàn toàn
-echo [4/9] Đóng app cũ...
-timeout /t 3 /nobreak >nul
-taskkill /F /IM "{exe_name}" >nul 2>&1
-timeout /t 2 /nobreak >nul
+        # Instructions
+        instructions_frame = ctk.CTkFrame(main_frame, fg_color="#3498db", corner_radius=10)
+        instructions_frame.pack(fill="x", padx=20, pady=10)
 
-REM ✅ [5/9] Backup file cũ
-echo [5/9] Backup file cũ...
-if exist "{current_file}.backup" del "{current_file}.backup"
-copy /Y "{current_file}" "{current_file}.backup" >nul
-if errorlevel 1 (
-    echo ❌ Không thể backup file cũ!
-    pause
-    exit /b 1
-)
+        ctk.CTkLabel(
+            instructions_frame,
+            text="📋 CÁCH CẬP NHẬT:",
+            font=("Arial", 14, "bold"),
+            text_color="white"
+        ).pack(anchor="w", padx=15, pady=(15, 5))
 
-REM ✅ [6/9] Xóa file cũ
-echo [6/9] Xóa file cũ...
-del "{current_file}"
-if exist "{current_file}" (
-    echo ❌ Không thể xóa file cũ!
-    echo Đang rollback...
-    copy /Y "{current_file}.backup" "{current_file}" >nul
-    pause
-    exit /b 1
-)
+        steps = [
+            "1. Đóng app này (click nút 'Đóng' bên dưới)",
+            "2. Mở file mới (đã mở folder cho bạn):",
+            f"   {os.path.basename(new_file)}",
+            "3. Nếu bị lỗi DLL: Click phải file → Properties → Unblock → Apply"
+        ]
 
-REM ✅ [7/9] Copy file mới (an toàn hơn move)
-echo [7/9] Cài đặt version mới...
-copy /Y "{new_file}" "{current_file}" >nul
-if errorlevel 1 (
-    echo ❌ Không thể cài đặt file mới!
-    echo Đang rollback...
-    copy /Y "{current_file}.backup" "{current_file}" >nul
-    del "{new_file}" >nul 2>&1
-    pause
-    exit /b 1
-)
+        for step in steps:
+            ctk.CTkLabel(
+                instructions_frame,
+                text=step,
+                font=("Arial", 12),
+                text_color="white",
+                justify="left"
+            ).pack(anchor="w", padx=15, pady=2)
 
-REM Xóa file .new sau khi copy xong
-del "{new_file}" >nul 2>&1
+        ctk.CTkLabel(
+            instructions_frame,
+            text="",
+            height=10
+        ).pack()
 
-REM Verify file mới có size hợp lệ
-for %%A in ("{current_file}") do set size=%%~zA
-if %size% LSS 10000000 (
-    echo ❌ File mới bị lỗi! Đang rollback...
-    del "{current_file}"
-    copy /Y "{current_file}.backup" "{current_file}" >nul
-    pause
-    exit /b 1
-)
+        # File path (copyable)
+        path_frame = ctk.CTkFrame(main_frame, fg_color="#34495e", corner_radius=8)
+        path_frame.pack(fill="x", padx=20, pady=15)
 
-REM Unblock file exe sau khi copy
-powershell -Command "Unblock-File -Path \"{current_file}\"" 2>nul
+        ctk.CTkLabel(
+            path_frame,
+            text="📁 File đã lưu tại:",
+            font=("Arial", 11, "bold"),
+            text_color="white"
+        ).pack(anchor="w", padx=10, pady=(10, 5))
 
-REM Verify file có thể access (không bị Windows Defender block)
-echo [7/9] Kiểm tra file accessibility...
-type "{current_file}" >nul 2>&1
-if errorlevel 1 (
-    echo ❌ WARNING: File có thể bị Windows Defender block!
-    echo Đang rollback...
-    del "{current_file}"
-    copy /Y "{current_file}.backup" "{current_file}" >nul
-    echo.
-    echo ❌ VUI LÒNG:
-    echo    1. Tắt Windows Defender Real-time protection
-    echo    2. Hoặc thêm folder vào Exclusions
-    echo    3. Chạy lại update
-    pause
-    exit /b 1
-)
+        ctk.CTkLabel(
+            path_frame,
+            text=new_file,
+            font=("Courier", 10),
+            text_color="#ecf0f1",
+            wraplength=500,
+            justify="left"
+        ).pack(anchor="w", padx=10, pady=(0, 10))
 
-REM ✅ [8/9] Đợi Windows và Antivirus sẵn sàng (QUAN TRỌNG)
-echo [8/9] Đợi Windows sẵn sàng...
-echo Đang đợi để tránh lỗi DLL (20 giây)...
-timeout /t 20 /nobreak
+        # Warning
+        warning_frame = ctk.CTkFrame(main_frame, fg_color="#e67e22", corner_radius=8)
+        warning_frame.pack(fill="x", padx=20, pady=10)
 
-REM ✅ [9/9] Khởi động app mới
-echo [9/9] Khởi động app...
-start "" "{current_file}"
+        ctk.CTkLabel(
+            warning_frame,
+            text="⚠️  Lưu ý: File cũ vẫn còn, bạn có thể xóa sau khi file mới chạy OK!",
+            font=("Arial", 11),
+            text_color="white",
+            wraplength=500
+        ).pack(padx=10, pady=10)
 
-REM Đợi 5 giây để verify app chạy OK
-timeout /t 5 /nobreak >nul
+        # Close button
+        ctk.CTkButton(
+            main_frame,
+            text="Đóng",
+            command=self.destroy,
+            width=200,
+            height=50,
+            font=("Arial", 16, "bold"),
+            fg_color="#2ecc71",
+            hover_color="#27ae60"
+        ).pack(pady=20)
 
-REM Kiểm tra app có chạy không
-tasklist | find /I "{exe_name}" >nul
-if errorlevel 1 (
-    echo.
-    echo ========================================
-    echo ❌❌❌ APP KHÔNG KHỞI ĐỘNG ĐƯỢC! ❌❌❌
-    echo ========================================
-    echo.
-    echo ⚠️  LỖI DLL - Windows Defender đang BLOCK exe!
-    echo.
-    echo 💡 CÁCH SỬA (LÀM THEO ĐÚNG THỨ TỰ):
-    echo.
-    echo    [BƯỚC 1] Tắt HOÀN TOÀN Windows Defender:
-    echo       - Mở "Windows Security"
-    echo       - Click "Virus ^& threat protection"
-    echo       - Click "Manage settings"
-    echo       - TẮT "Real-time protection"
-    echo       - TẮT "Cloud-delivered protection"
-    echo       - TẮT "Automatic sample submission"
-    echo.
-    echo    [BƯỚC 2] Chạy lại file backup:
-    echo       - Double-click: {current_file}.backup
-    echo.
-    echo    [BƯỚC 3] Nếu vẫn lỗi, thêm exclusion:
-    echo       - Windows Security ^> Virus ^& threat protection
-    echo       - Scroll xuống "Exclusions" ^> Click "Add or remove exclusions"
-    echo       - Click "Add an exclusion" ^> "Folder"
-    echo       - Chọn folder: {current_dir}
-    echo.
-    echo ⚠️  File backup: {current_file}.backup
-    echo.
-    pause
-) else (
-    echo.
-    echo ========================================
-    echo ✅ CẬP NHẬT THÀNH CÔNG!
-    echo ========================================
-    echo.
-    echo ℹ️  File backup được giữ lại: {current_file}.backup
-    echo    (Có thể xóa nếu app chạy OK)
-    echo.
-    timeout /t 3 /nobreak >nul
-)
-
-REM Tự xóa updater script
-del "%~f0"
-""".format(current_file=current_file, new_file=new_file, exe_name=exe_name, current_dir=current_dir)
-        
-        updater_path = "updater.bat"
-        with open(updater_path, 'w', encoding='utf-8') as f:
-            f.write(updater_script)
-        
-        # Chạy updater và thoát app hiện tại
-        subprocess.Popen(updater_path, shell=True)
-    
     def skip_update(self):
         """Bỏ qua update"""
         self.result = False
