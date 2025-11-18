@@ -2475,7 +2475,7 @@ class SephoraAutoTool(ctk.CTk):
         ctk.set_default_color_theme("blue")
         
         # Cấu hình window
-        self.title("Sephora Auto Order - 1.10.39")
+        self.title("Sephora Auto Order - 1.10.43")
         self.geometry("1400x700")
         
         # Biến
