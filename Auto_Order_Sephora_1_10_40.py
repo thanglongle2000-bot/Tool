@@ -3,11 +3,12 @@
 ║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.40               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.40 - FIX AUTO UPDATE DLL ERROR (v2)            ║
+║  VERSION 1.10.40 - FIX AUTO UPDATE DLL ERROR (v3)            ║
 ║  ✅ TASKKILL: Force close app cũ trước khi update           ║
-║  ✅ COPY thay vì MOVE: An toàn hơn, có thể rollback         ║
-║  ✅ DELAY 10s: Đợi Windows flush cache & verify file        ║
-║  ✅ 6 bước update rõ ràng thay vì 5 bước                    ║
+║  ✅ COPY thay vì MOVE: An toàn hơn, rollback dễ dàng        ║
+║  ✅ DELAY 10s: Đợi Windows flush cache trước khi start      ║
+║  ✅ NO-CACHE: Disable cache khi download, tải bản mới       ║
+║  ✅ DEBUG: Log URL và file size để kiểm tra                 ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -776,20 +777,28 @@ class UpdateDialog(ctk.CTk):
         try:
             # Download file mới
             self.after(0, lambda: self.status_label.configure(text="⏳ Đang tải xuống...", text_color="orange"))
-            
-            response = requests.get(self.download_url, timeout=30)
-            
+
+            # ✅ FIX: Disable cache để luôn tải bản mới nhất
+            headers = {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+
+            print(f"[UPDATE] Downloading from: {self.download_url}")
+            response = requests.get(self.download_url, headers=headers, timeout=30)
+
             if response.status_code != 200:
                 raise Exception(f"Download failed: {response.status_code}")
-            
+
             # ✅ V1.10.38: Verify file size (phải > 10MB cho exe)
             file_size = len(response.content)
             min_size = 10 * 1024 * 1024  # 10 MB
-            
-            if file_size < min_size:
-                raise Exception(f"File quá nhỏ ({file_size} bytes), có thể bị lỗi download!")
-            
+
             print(f"[UPDATE] Downloaded file size: {file_size / (1024*1024):.2f} MB")
+
+            if file_size < min_size:
+                raise Exception(f"File quá nhỏ ({file_size / (1024*1024):.2f} MB), cần ít nhất 10 MB!")
             
             # Xác định tên file hiện tại
             if getattr(sys, 'frozen', False):
