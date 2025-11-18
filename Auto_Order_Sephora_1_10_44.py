@@ -6148,11 +6148,22 @@ class SephoraAutoTool(ctk.CTk):
                         print(f"[INFO] MANUAL MODE: {cols} columns (max: {max_cols})")
                         print(f"[INFO] Spacing: {spacing_width}x{spacing_height}")
                     
-                    # Bước 5: Tính vị trí
+                    # Bước 5: Tính vị trí với wrap-around cho màn hình 4x4
                     profile_idx = idx - 1
-                    row = profile_idx // cols
-                    col = profile_idx % cols
-                    
+
+                    # ✅ V1.10.44 FIX: Wrap around khi vượt quá 16 profiles (4 rows x 4 cols)
+                    # Màn hình 1920x1080 chỉ fit được tối đa 4 rows
+                    max_rows = 4
+                    max_visible_profiles = max_rows * cols  # 4 * 4 = 16
+
+                    # Nếu vượt quá 16 profiles, quay lại vị trí đầu tiên (overlap)
+                    wrapped_idx = profile_idx % max_visible_profiles
+                    row = wrapped_idx // cols
+                    col = wrapped_idx % cols
+
+                    if profile_idx >= max_visible_profiles:
+                        print(f"[INFO] Profile {idx} wrapping around: original idx={profile_idx} → wrapped idx={wrapped_idx}")
+
                     # Tính vị trí theo screen pixels
                     x_screen = col * spacing_width
                     y_screen = row * spacing_height
