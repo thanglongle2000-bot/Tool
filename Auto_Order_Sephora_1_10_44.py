@@ -6164,10 +6164,16 @@ class SephoraAutoTool(ctk.CTk):
                     row = wrapped_idx // cols
                     col = wrapped_idx % cols
 
+                    # Enhanced logging cho wrap-around
                     if profile_idx >= max_visible_profiles:
-                        print(f"[INFO] Profile {idx} wrapping around: original idx={profile_idx} → wrapped idx={wrapped_idx}")
+                        overlap_count = (profile_idx // max_visible_profiles) + 1
+                        overlapping_profile = wrapped_idx + 1
+                        print(f"[WRAP] Profile {idx} → Position of Profile {overlapping_profile} (Row {row+1}, Col {col+1}) [Overlap #{overlap_count}]")
 
-                    print(f"[DEBUG] Screen: {screen_width}x{screen_height}, Max rows: {max_rows}, Max visible: {max_visible_profiles}")
+                    if idx == 1:  # Chỉ print info màn hình một lần
+                        print(f"[SCREEN] {screen_width}x{screen_height} | Grid: {cols} cols × {max_rows} rows | Max visible: {max_visible_profiles} profiles")
+                        if len(email_list) > max_visible_profiles:
+                            print(f"[WARNING] Running {len(email_list)} profiles on screen with {max_visible_profiles} slots → {len(email_list) - max_visible_profiles} profiles will overlap!")
 
                     # Tính vị trí theo screen pixels
                     x_screen = col * spacing_width
