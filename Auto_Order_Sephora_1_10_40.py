@@ -1,13 +1,13 @@
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.39               ║
+║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.40               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.39 - TMPROXY RETRY + AUTO UPDATE FIX          ║
-║  ✅ FIX TMPROXY: Retry khi API trả về "retry after X"       ║
-║  ✅ FIX Auto-Update: Verify file size, backup, rollback     ║
-║  ✅ Không còn mất file exe khi update lỗi                   ║
-║  ✅ Apply cho cả main flow và retry flow                    ║
+║  VERSION 1.10.40 - FIX AUTO UPDATE DLL ERROR                 ║
+║  ✅ FIX: Lỗi "Failed to load python DLL" khi auto-update    ║
+║  ✅ Tăng delay từ 2s lên 4s trước khi move file             ║
+║  ✅ Đợi thêm 5s để Windows flush cache sau khi move         ║
+║  ✅ File exe được verify kỹ trước khi start                 ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -39,7 +39,7 @@ import shutil
 API_URL = "https://script.google.com/macros/s/AKfycbweWL4SRzwO0sMn7J2TlIlBQUldOKGX6Ro4zyWlnoHR_IV0MWuY1ozIKwjj6y2XoS_20g/exec"
 
 # ✅ Current version
-CURRENT_VERSION = "1.10.39"
+CURRENT_VERSION = "1.10.40"
 
 
 def get_device_id():
@@ -838,11 +838,11 @@ echo ========================================
 echo   SEPHORA AUTO ORDER - UPDATE
 echo ========================================
 echo.
-echo [1/4] Đang chờ app đóng...
-timeout /t 2 /nobreak >nul
+echo [1/5] Đang chờ app đóng...
+timeout /t 4 /nobreak >nul
 
 REM Backup file cũ
-echo [2/4] Backup file cũ...
+echo [2/5] Backup file cũ...
 if exist "{current_file}.backup" del "{current_file}.backup"
 move "{current_file}" "{current_file}.backup"
 if errorlevel 1 (
@@ -852,7 +852,7 @@ if errorlevel 1 (
 )
 
 REM Thay thế bằng file mới
-echo [3/4] Cài đặt version mới...
+echo [3/5] Cài đặt version mới...
 move /Y "{new_file}" "{current_file}"
 if errorlevel 1 (
     echo ❌ Không thể cài đặt file mới!
@@ -863,6 +863,7 @@ if errorlevel 1 (
 )
 
 REM Verify file mới
+echo [4/5] Kiểm tra file...
 for %%A in ("{current_file}") do set size=%%~zA
 if %size% LSS 10000000 (
     echo ❌ File mới bị lỗi! Đang rollback...
@@ -872,12 +873,16 @@ if %size% LSS 10000000 (
     exit /b 1
 )
 
+REM ✅ FIX: Đợi Windows flush file cache để tránh lỗi DLL
+echo Đợi file sẵn sàng...
+timeout /t 5 /nobreak >nul
+
 REM Khởi động app mới
-echo [4/4] Khởi động app...
+echo [5/5] Khởi động app...
 start "" "{current_file}"
 
-REM Chờ 5s để app mới chạy, sau đó xóa backup
-timeout /t 5 /nobreak >nul
+REM Chờ 3s để app mới chạy, sau đó xóa backup
+timeout /t 3 /nobreak >nul
 if exist "{current_file}.backup" del "{current_file}.backup"
 
 REM Tự xóa updater script
