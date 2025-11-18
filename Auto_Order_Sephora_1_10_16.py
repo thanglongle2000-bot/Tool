@@ -28,6 +28,66 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.chrome.service import Service as ChromeService
+import sys
+import uuid
+import requests
+
+# 👉 Dán URL web app của bạn vào đây
+API_URL = "https://script.google.com/macros/s/AKfycbwjrwVV-LQZ_Jkurjm2R1t3tRQ7o7AECo9ctx35ZYa5LaZo1hNNzqNZZ_q-AV2n6XZybw/exec"
+
+
+def get_device_id():
+    """
+    Lấy mã device đơn giản dựa trên MAC address.
+    Mỗi máy sẽ có một giá trị khác nhau.
+    """
+    return hex(uuid.getnode())
+
+
+def check_key_online():
+    print("=== KÍCH HOẠT TOOL ===")
+    user_key = input("Nhập key kích hoạt: ").strip()
+    
+    if not user_key:
+        print("❌ Chưa nhập key!")
+        input("Nhấn Enter để thoát...")
+        sys.exit()
+    
+    device_id = get_device_id()
+    
+    try:
+        resp = requests.get(API_URL, params={"key": user_key, "device": device_id}, timeout=10)
+        status = resp.text.strip()
+    except Exception as e:
+        print("❌ Không kết nối được máy chủ kiểm tra key!")
+        print("Lỗi:", e)
+        input("Nhấn Enter để thoát...")
+        sys.exit()
+    
+    if status == "OK":
+        print("✅ Key hợp lệ, kích hoạt thành công!")
+        # Cho chạy tiếp chương trình
+    elif status == "USED":
+        print("❌ Key này đã được sử dụng trên một máy khác!")
+        print("Nếu bạn đổi máy, liên hệ admin để reset key.")
+        input("Nhấn Enter để thoát...")
+        sys.exit()
+    elif status == "INVALID":
+        print("❌ Key không hợp lệ! Vui lòng kiểm tra lại.")
+        input("Nhấn Enter để thoát...")
+        sys.exit()
+    else:
+        print("❌ Phản hồi không hợp lệ từ server: ", status)
+        input("Nhấn Enter để thoát...")
+        sys.exit()
+
+
+# GỌI HÀM NÀY Ở ĐẦU CHƯƠNG TRÌNH
+check_key_online()
+
+# === SAU ĐÂY MỚI TỚI PHẦN CODE TOOL CỦA BẠN ===
+# ...
+# ...
 
 # ==================== GPM API CLASS ====================
 class GPMLoginAPI:
