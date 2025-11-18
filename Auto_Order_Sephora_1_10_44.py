@@ -1,15 +1,15 @@
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.44               ║
+║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.45               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.44 - SIMPLIFIED UPDATE (FIX DLL ERROR)         ║
-║  ✅ CHỈ DOWNLOAD file mới - KHÔNG tự động replace           ║
-║  ✅ User tự đóng app cũ và mở file mới                      ║
-║  ✅ Tránh file locking, process conflicts, DLL issues        ║
-║  ✅ Unblock file ngay sau download                          ║
-║  ✅ Tự động mở folder chứa file mới                         ║
-║  ✅ Hướng dẫn chi tiết trong success dialog                 ║
+║  VERSION 1.10.45 - DYNAMIC SCREEN LAYOUT (ALL RESOLUTIONS)   ║
+║  ✅ Tự động tính columns và rows theo kích thước màn hình   ║
+║  ✅ Wrap-around khi profiles vượt quá slots hiển thị        ║
+║  ✅ Hỗ trợ mọi độ phân giải: Full HD, 2K, 4K               ║
+║  ✅ Enhanced logging cho overlap tracking                   ║
+║  ✅ Proportional scaling cho màn hình lớn hơn              ║
+║  ✅ Warning khi profiles > screen capacity                  ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -41,7 +41,7 @@ import shutil
 API_URL = "https://script.google.com/macros/s/AKfycbweWL4SRzwO0sMn7J2TlIlBQUldOKGX6Ro4zyWlnoHR_IV0MWuY1ozIKwjj6y2XoS_20g/exec"
 
 # ✅ Current version
-CURRENT_VERSION = "1.10.44"
+CURRENT_VERSION = "1.10.45"
 
 
 def get_device_id():
@@ -2547,7 +2547,7 @@ class SephoraAutoTool(ctk.CTk):
         ctk.set_default_color_theme("blue")
         
         # Cấu hình window
-        self.title("Sephora Auto Order - 1.10.44")
+        self.title("Sephora Auto Order - 1.10.45")
         self.geometry("1400x700")
         
         # Biến
