@@ -3,11 +3,11 @@
 ║       SEPHORA AUTO ORDER TOOL - VERSION 1.10.40               ║
 ║          Tất cả chức năng cơ bản hoạt động 100%              ║
 ║                                                                ║
-║  VERSION 1.10.40 - FIX AUTO UPDATE DLL ERROR                 ║
-║  ✅ FIX: Lỗi "Failed to load python DLL" khi auto-update    ║
-║  ✅ Tăng delay từ 2s lên 4s trước khi move file             ║
-║  ✅ Đợi thêm 5s để Windows flush cache sau khi move         ║
-║  ✅ File exe được verify kỹ trước khi start                 ║
+║  VERSION 1.10.40 - FIX AUTO UPDATE DLL ERROR (v2)            ║
+║  ✅ TASKKILL: Force close app cũ trước khi update           ║
+║  ✅ COPY thay vì MOVE: An toàn hơn, có thể rollback         ║
+║  ✅ DELAY 10s: Đợi Windows flush cache & verify file        ║
+║  ✅ 6 bước update rõ ràng thay vì 5 bước                    ║
 ║                                                                ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -831,63 +831,89 @@ class UpdateDialog(ctk.CTk):
             self.after(0, lambda: self.skip_btn.configure(state="normal"))
     
     def create_updater(self, current_file, new_file):
-        """Tạo script updater với backup và rollback"""
+        """Tạo script updater với backup và rollback - FIX DLL ERROR"""
+        # Get executable name for taskkill
+        exe_name = os.path.basename(current_file)
+
         updater_script = """@echo off
 chcp 65001 >nul
 echo ========================================
 echo   SEPHORA AUTO ORDER - UPDATE
 echo ========================================
 echo.
-echo [1/5] Đang chờ app đóng...
-timeout /t 4 /nobreak >nul
 
-REM Backup file cũ
-echo [2/5] Backup file cũ...
+REM ✅ [1/6] Chắc chắn app cũ đã tắt hoàn toàn
+echo [1/6] Đóng app cũ...
+timeout /t 3 /nobreak >nul
+taskkill /F /IM "{exe_name}" >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+REM ✅ [2/6] Backup file cũ
+echo [2/6] Backup file cũ...
 if exist "{current_file}.backup" del "{current_file}.backup"
-move "{current_file}" "{current_file}.backup"
+copy /Y "{current_file}" "{current_file}.backup" >nul
 if errorlevel 1 (
     echo ❌ Không thể backup file cũ!
     pause
     exit /b 1
 )
 
-REM Thay thế bằng file mới
-echo [3/5] Cài đặt version mới...
-move /Y "{new_file}" "{current_file}"
-if errorlevel 1 (
-    echo ❌ Không thể cài đặt file mới!
+REM ✅ [3/6] Xóa file cũ
+echo [3/6] Xóa file cũ...
+del "{current_file}"
+if exist "{current_file}" (
+    echo ❌ Không thể xóa file cũ!
     echo Đang rollback...
-    move /Y "{current_file}.backup" "{current_file}"
+    copy /Y "{current_file}.backup" "{current_file}" >nul
     pause
     exit /b 1
 )
 
+REM ✅ [4/6] Copy file mới (an toàn hơn move)
+echo [4/6] Cài đặt version mới...
+copy /Y "{new_file}" "{current_file}" >nul
+if errorlevel 1 (
+    echo ❌ Không thể cài đặt file mới!
+    echo Đang rollback...
+    copy /Y "{current_file}.backup" "{current_file}" >nul
+    del "{new_file}" >nul 2>&1
+    pause
+    exit /b 1
+)
+
+REM Xóa file .new sau khi copy xong
+del "{new_file}" >nul 2>&1
+
 REM Verify file mới
-echo [4/5] Kiểm tra file...
 for %%A in ("{current_file}") do set size=%%~zA
 if %size% LSS 10000000 (
     echo ❌ File mới bị lỗi! Đang rollback...
     del "{current_file}"
-    move /Y "{current_file}.backup" "{current_file}"
+    copy /Y "{current_file}.backup" "{current_file}" >nul
     pause
     exit /b 1
 )
 
-REM ✅ FIX: Đợi Windows flush file cache để tránh lỗi DLL
-echo Đợi file sẵn sàng...
-timeout /t 5 /nobreak >nul
+REM ✅ [5/6] Đợi Windows sẵn sàng (QUAN TRỌNG - fix lỗi DLL)
+echo [5/6] Đợi Windows sẵn sàng...
+echo Vui lòng chờ 10 giây để tránh lỗi DLL...
+timeout /t 10 /nobreak
 
-REM Khởi động app mới
-echo [5/5] Khởi động app...
+REM ✅ [6/6] Khởi động app mới
+echo [6/6] Khởi động app...
 start "" "{current_file}"
 
-REM Chờ 3s để app mới chạy, sau đó xóa backup
+REM Chờ app mới chạy, sau đó dọn dẹp
 timeout /t 3 /nobreak >nul
-if exist "{current_file}.backup" del "{current_file}.backup"
+if exist "{current_file}.backup" del "{current_file}.backup" >nul 2>&1
+
+echo.
+echo ✅ Cập nhật thành công!
+timeout /t 2 /nobreak >nul
 
 REM Tự xóa updater script
 del "%~f0"
-""".format(current_file=current_file, new_file=new_file)
+""".format(current_file=current_file, new_file=new_file, exe_name=exe_name)
         
         updater_path = "updater.bat"
         with open(updater_path, 'w', encoding='utf-8') as f:
