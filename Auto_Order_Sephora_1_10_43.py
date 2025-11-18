@@ -662,14 +662,14 @@ class UpdateDialog(ctk.CTk):
         super().__init__()
         
         self.title("Cập nhật mới")
-        self.geometry("550x700")
+        self.geometry("550x600")
         self.resizable(False, False)
 
         # Center window
         self.update_idletasks()
         x = (self.winfo_screenwidth() // 2) - (550 // 2)
-        y = (self.winfo_screenheight() // 2) - (700 // 2)
-        self.geometry(f"550x700+{x}+{y}")
+        y = (self.winfo_screenheight() // 2) - (600 // 2)
+        self.geometry(f"550x600+{x}+{y}")
         
         self.result = None
         self.latest_version = latest_version
@@ -722,35 +722,6 @@ class UpdateDialog(ctk.CTk):
         changelog_text.pack(fill="both", padx=20, pady=(0, 15))
         changelog_text.insert("1.0", changelog)
         changelog_text.configure(state="disabled")
-
-        # Warning về Windows Defender
-        warning_frame = ctk.CTkFrame(main_frame, fg_color="#e74c3c", corner_radius=8)
-        warning_frame.pack(fill="x", padx=20, pady=10)
-
-        ctk.CTkLabel(
-            warning_frame,
-            text="⚠️  LƯU Ý QUAN TRỌNG:",
-            font=("Arial", 12, "bold"),
-            text_color="white"
-        ).pack(anchor="w", padx=10, pady=(8, 2))
-
-        ctk.CTkLabel(
-            warning_frame,
-            text="Nếu gặp lỗi DLL, vui lòng tắt Windows Defender tạm thời:",
-            font=("Arial", 10),
-            text_color="white",
-            wraplength=500,
-            justify="left"
-        ).pack(anchor="w", padx=10, pady=2)
-
-        ctk.CTkLabel(
-            warning_frame,
-            text="Windows Security → Virus & threat protection → Tắt Real-time protection",
-            font=("Arial", 9, "italic"),
-            text_color="#ffcccc",
-            wraplength=500,
-            justify="left"
-        ).pack(anchor="w", padx=10, pady=(0, 8))
 
         # Status label
         self.status_label = ctk.CTkLabel(
